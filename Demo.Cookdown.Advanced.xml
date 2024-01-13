@@ -1,0 +1,932 @@
+﻿<?xml version="1.0" encoding="utf-8"?><ManagementPack ContentReadable="true" SchemaVersion="2.0" OriginalSchemaVersion="1.1" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+  <Manifest>
+    <Identity>
+      <ID>Demo.Cookdown.Advanced</ID>
+      <Version>1.0.0.0</Version>
+    </Identity>
+    <Name>Demo.Cookdown.Advanced</Name>
+    <References>
+      <Reference Alias="System">
+        <ID>System.Library</ID>
+        <Version>7.5.8501.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="SC">
+        <ID>Microsoft.SystemCenter.Library</ID>
+        <Version>7.0.8433.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="Windows">
+        <ID>Microsoft.Windows.Library</ID>
+        <Version>7.5.8501.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>	  
+      <Reference Alias="Health">
+        <ID>System.Health.Library</ID>
+        <Version>7.0.8433.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="Perf">
+        <ID>System.Performance.Library</ID>
+        <Version>7.0.8433.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>
+      <Reference Alias="MSDL">
+        <ID>Microsoft.SystemCenter.DataWarehouse.Library</ID>
+        <Version>7.0.8433.0</Version>
+        <PublicKeyToken>31bf3856ad364e35</PublicKeyToken>
+      </Reference>	
+    </References>
+  </Manifest>
+  <TypeDefinitions>
+    <EntityTypes>
+      <ClassTypes>
+        <ClassType ID="Demo.Cookdown.Advanced.Class" Base="Windows!Microsoft.Windows.LocalApplication" Accessibility="Public" Abstract="false" Hosted="true" Singleton="false">
+          <Property ID="UNCPath" Type="string" AutoIncrement="false" Key="true" CaseSensitive="false" MaxLength="256" MinLength="0" Required="true" Scale="0" />
+        </ClassType>
+      </ClassTypes>
+    </EntityTypes>
+    <ModuleTypes>
+      <DataSourceModuleType ID="Demo.Cookdown.Advanced.Performance.Filtered.DS" Accessibility="Public" Batching="false">
+        <Configuration>
+		  <xsd:element minOccurs="1" type="xsd:integer" name="IntervalSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:integer" name="TimeoutSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:string" name="UNCPath" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+        </Configuration>
+        <OverrideableParameters>
+		  <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="TimeoutSeconds" Selector="$Config/TimeoutSeconds$" ParameterType="int" />
+        </OverrideableParameters>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <DataSource ID="DS" TypeID="Demo.Cookdown.Advanced.Performance.DS">
+                <IntervalSeconds>$Config/IntervalSeconds$</IntervalSeconds>
+                <TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+              </DataSource>
+              <ConditionDetection ID="Filter" TypeID="System!System.ExpressionFilter">
+				  <Expression>
+					<SimpleExpression>
+					  <ValueExpression>
+						<XPathQuery Type="String">Property[@Name='UNCPath']</XPathQuery>
+					  </ValueExpression>
+					  <Operator>Equal</Operator>
+					  <ValueExpression>
+						<Value Type="String">$Config/UNCPath$</Value>
+					  </ValueExpression>
+					</SimpleExpression>
+				  </Expression>
+              </ConditionDetection>
+            </MemberModules>
+            <Composition>
+              <Node ID="Filter">
+                <Node ID="DS" />
+              </Node>
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>System!System.PropertyBagData</OutputType>
+      </DataSourceModuleType>	
+      <DataSourceModuleType ID="Demo.Cookdown.Advanced.Performance.DS" Accessibility="Internal" Batching="false">
+        <Configuration>
+		  <xsd:element minOccurs="1" type="xsd:integer" name="IntervalSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:integer" name="TimeoutSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />	
+        </Configuration>
+        <OverrideableParameters>
+		  <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="TimeoutSeconds" Selector="$Config/TimeoutSeconds$" ParameterType="int" />
+        </OverrideableParameters>
+        <ModuleImplementation Isolation="Any">
+          <Composite>
+            <MemberModules>
+              <DataSource ID="Scheduler" TypeID="System!System.Scheduler">
+                <Scheduler>
+                  <SimpleReccuringSchedule>
+                    <Interval Unit="Seconds">$Config/IntervalSeconds$</Interval>
+                  </SimpleReccuringSchedule>
+                  <ExcludeDates />
+                </Scheduler>
+              </DataSource>
+              <ProbeAction ID="PA" TypeID="Windows!Microsoft.Windows.PowerShellPropertyBagTriggerOnlyProbe">
+                <ScriptName>Demo.Cookdown.Advanced.Performance.DS.ps1</ScriptName>
+                <ScriptBody>
+#=================================================================================
+#  Script to collect performance data of a UNC path that supports cookdown
+#
+#  Author: Kevin Holman
+#  v1.0
+#
+#  Since this script will support cookdown no script parameters will be passed in
+#=================================================================================
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "Demo.Cookdown.Advanced.Performance.DS.ps1"
+$EventID = "3006"
+#Define the File Path
+[string]$FilePath = "E:\SCOM\NetworkShares.txt"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript is starting. `nRunning as ($whoami).")
+#=================================================================================
+
+
+# Begin MAIN script section
+#=================================================================================
+# Get all the UNC Paths from the same file used in discovery
+# Loop through all UNC paths and get performance data and output propertybags to support cookdown
+
+# Test to see if folder and file exists
+$FileExists = Test-Path $FilePath
+
+IF ($FileExists)
+{
+  #Get the content from the file
+  $Shares = Get-Content -Path $FilePath
+
+  #Only continue with performance data if content was found in file
+  IF ($Shares)
+  {
+    #Loop through each line of content found in file
+	FOREACH ($Share in $Shares)
+    {
+	  [string]$UNCPath = $Share
+	  #Log an event for verbose troubleshooting
+	  $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nUNCPath = ($UNCPath)")
+
+      # Get used drives
+      $usedDrives = Get-PSDrive | Select-Object -Expand Name | Where-Object { $_.Length -eq 1 }
+
+      # Get a rendomly selected drive letter from list not including used drives
+      $DriveLetter = Get-Random -InputObject @(68..90 | ForEach-Object { [string][char]$_ } | Where-Object { $usedDrives -notcontains $_ })
+
+      #Log event for verbose troubleshooting
+      $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nDriveletter was assigned as ($DriveLetter) for path ($UNCPath).")
+	  
+	  #Check to see if the drive is currently in use (should never happen unless cookdown is broken)
+      IF (Get-PSDrive -Name $DriveLetter -ErrorAction SilentlyContinue)
+      {
+        Start-Sleep -Seconds 5
+
+        # Get used drives
+        $usedDrives = (Get-PSDrive | Select-Object -Expand Name | Where-Object { $_.Length -eq 1 }) + $DriveLetter
+
+        # Get a drive letter from list not including used drives
+        $DriveLetter = Get-Random -InputObject @(68..90 | ForEach-Object { [string][char]$_ } | Where-Object { $usedDrives -notcontains $_ })
+
+        $momapi.LogScriptEvent($ScriptName,$EventID,2,"`nOriginal Driveletter was found to be in use, so reassigning new drive letter as ($DriveLetter) for path ($UNCPath).")
+      }
+ 
+      # Map the drive
+      $Error.Clear()
+      New-PSDrive -Name $DriveLetter -PSProvider FileSystem -Root $UNCPath -Persist
+
+      IF ($Error)
+      {
+        $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nFATAL ERROR mapping drive to ($DriveLetter) for path ($UNCPath). `nTerminating. `nError is ($Error).")
+        EXIT
+      }
+
+      # Get the storage metrics
+      $DriveInfo = Get-PSDrive -Name $DriveLetter
+      [int]$FreeSpaceGB = [math]::Round(($DriveInfo.Free / 1GB), 2)
+      [int]$UsedSpaceGB = [math]::Round(($DriveInfo.Used / 1GB), 2)
+      [int]$TotalSpaceGB = [math]::Round(($DriveInfo.Used + $DriveInfo.Free) / 1GB, 2)
+      [int]$FreeSpacePercent = [math]::Round((($TotalSpaceGB - $UsedSpaceGB) / $TotalSpaceGB) * 100, 1)
+      [int]$UsedSpacePercent = [math]::Round((($TotalSpaceGB - $FreeSpaceGB) / $TotalSpaceGB) * 100, 1)
+
+      #Log verbose event for troubleshooting
+      $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nValues: `nFreeSpaceGB is ($FreeSpaceGB). `nUsedSpaceGB is ($UsedSpaceGB). `nTotalSpaceGB is ($TotalSpaceGB). `FreeSpacePercent is ($FreeSpacePercent). `UsedSpacePercent is ($UsedSpacePercent). `nDriveletter is ($DriveLetter) for path ($uncPath).")
+
+      # Disconnect the drive
+      Remove-PSDrive $DriveLetter -Force
+
+      # Load SCOM PropertyBag function to create a new empty bag for each instance
+      $bag = $momapi.CreatePropertyBag()
+
+      # Fill propertybags
+      $bag.AddValue("UNCPath",$UNCPath)
+      $bag.AddValue("FreeSpaceGB",$FreeSpaceGB)
+      $bag.AddValue("UsedSpaceGB",$UsedSpaceGB)
+      $bag.AddValue("TotalSpaceGB",$TotalSpaceGB)
+      $bag.AddValue("FreeSpacePercent",$FreeSpacePercent)
+      $bag.AddValue("UsedSpacePercent",$UsedSpacePercent)
+
+      # Return all bags for path
+      $bag
+    }
+  }
+  ELSE
+  {
+    # Log an event for no objects found in file
+    $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nNo shares found in file.")
+  }
+}
+ELSE
+{
+  #Error finding file
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nError finding discovery file at ($FilePath). `nTerminating.")
+  EXIT
+}
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nRuntime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+
+                </ScriptBody>
+                <Parameters></Parameters>				
+                <TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+              </ProbeAction>
+            </MemberModules>
+            <Composition>
+              <Node ID="PA">
+                <Node ID="Scheduler" />
+              </Node>
+            </Composition>
+          </Composite>
+        </ModuleImplementation>
+        <OutputType>System!System.PropertyBagData</OutputType>
+      </DataSourceModuleType>	
+    </ModuleTypes>
+    <MonitorTypes>
+      <UnitMonitorType ID="Demo.Cookdown.Advanced.FreeSpaceGB.MonitorType" Accessibility="Internal">
+        <MonitorTypeStates>
+          <MonitorTypeState ID="Error" NoDetection="false" />
+          <MonitorTypeState ID="Warning" NoDetection="false" />
+		  <MonitorTypeState ID="Success" NoDetection="false" />
+        </MonitorTypeStates>
+        <Configuration>
+          <xsd:element minOccurs="1" type="xsd:integer" name="IntervalSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" type="xsd:integer" name="TimeoutSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:string" name="UNCPath" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:integer" name="WarningThreshold" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:integer" name="CriticalThreshold" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />		  
+        </Configuration>
+        <OverrideableParameters>
+		  <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="TimeoutSeconds" Selector="$Config/TimeoutSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="WarningThreshold" Selector="$Config/WarningThreshold$" ParameterType="int" />
+		  <OverrideableParameter ID="CriticalThreshold" Selector="$Config/CriticalThreshold$" ParameterType="int" />		  
+        </OverrideableParameters>
+        <MonitorImplementation>
+          <MemberModules>
+            <DataSource ID="DS" TypeID="Demo.Cookdown.Advanced.Performance.Filtered.DS">
+			  <IntervalSeconds>$Config/IntervalSeconds$</IntervalSeconds>
+			  <TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+              <UNCPath>$Config/UNCPath$</UNCPath>
+            </DataSource>
+            <ConditionDetection ID="HealthyCondition" TypeID="System!System.ExpressionFilter">
+			  <Expression>
+				<SimpleExpression>
+				  <ValueExpression>
+					<XPathQuery Type="Integer">Property[@Name='FreeSpaceGB']</XPathQuery>
+				  </ValueExpression>
+				  <Operator>Greater</Operator>
+				  <ValueExpression>
+					<Value Type="Integer">$Config/WarningThreshold$</Value>
+				  </ValueExpression>
+				</SimpleExpression>
+			  </Expression>
+            </ConditionDetection>
+            <ConditionDetection ID="WarningCondition" TypeID="System!System.ExpressionFilter">
+              <Expression>
+                <And>
+                  <Expression>
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="Integer">Property[@Name='FreeSpaceGB']</XPathQuery>
+                      </ValueExpression>
+                      <Operator>LessEqual</Operator>
+                      <ValueExpression>
+                        <Value Type="Integer">$Config/WarningThreshold$</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="Integer">Property[@Name='FreeSpaceGB']</XPathQuery>
+                      </ValueExpression>
+                      <Operator>Greater</Operator>
+                      <ValueExpression>
+                        <Value Type="Integer">$Config/CriticalThreshold$</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+				</And>
+		      </Expression>				  
+            </ConditionDetection>			
+            <ConditionDetection ID="CriticalCondition" TypeID="System!System.ExpressionFilter">
+			  <Expression>
+				<SimpleExpression>
+				  <ValueExpression>
+					<XPathQuery Type="Integer">Property[@Name='FreeSpaceGB']</XPathQuery>
+				  </ValueExpression>
+				  <Operator>LessEqual</Operator>
+				  <ValueExpression>
+					<Value Type="Integer">$Config/CriticalThreshold$</Value>
+				  </ValueExpression>
+				</SimpleExpression>
+			  </Expression>
+            </ConditionDetection>
+          </MemberModules>
+          <RegularDetections>
+            <RegularDetection MonitorTypeStateID="Error">
+              <Node ID="CriticalCondition">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+            <RegularDetection MonitorTypeStateID="Success">
+              <Node ID="HealthyCondition">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+            <RegularDetection MonitorTypeStateID="Warning">
+              <Node ID="WarningCondition">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+          </RegularDetections>
+        </MonitorImplementation>
+      </UnitMonitorType>
+      <UnitMonitorType ID="Demo.Cookdown.Advanced.FreeSpacePercent.MonitorType" Accessibility="Internal">
+        <MonitorTypeStates>
+          <MonitorTypeState ID="Error" NoDetection="false" />
+          <MonitorTypeState ID="Warning" NoDetection="false" />
+		  <MonitorTypeState ID="Success" NoDetection="false" />
+        </MonitorTypeStates>
+        <Configuration>
+          <xsd:element minOccurs="1" type="xsd:integer" name="IntervalSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+          <xsd:element minOccurs="1" type="xsd:integer" name="TimeoutSeconds" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:string" name="UNCPath" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:integer" name="WarningThreshold" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />
+		  <xsd:element minOccurs="1" type="xsd:integer" name="CriticalThreshold" xmlns:xsd="http://www.w3.org/2001/XMLSchema" />		  
+        </Configuration>
+        <OverrideableParameters>
+		  <OverrideableParameter ID="IntervalSeconds" Selector="$Config/IntervalSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="TimeoutSeconds" Selector="$Config/TimeoutSeconds$" ParameterType="int" />
+		  <OverrideableParameter ID="WarningThreshold" Selector="$Config/WarningThreshold$" ParameterType="int" />
+		  <OverrideableParameter ID="CriticalThreshold" Selector="$Config/CriticalThreshold$" ParameterType="int" />		  
+        </OverrideableParameters>
+        <MonitorImplementation>
+          <MemberModules>
+            <DataSource ID="DS" TypeID="Demo.Cookdown.Advanced.Performance.Filtered.DS">
+			  <IntervalSeconds>$Config/IntervalSeconds$</IntervalSeconds>
+			  <TimeoutSeconds>$Config/TimeoutSeconds$</TimeoutSeconds>
+              <UNCPath>$Config/UNCPath$</UNCPath>
+            </DataSource>
+            <ConditionDetection ID="HealthyCondition" TypeID="System!System.ExpressionFilter">
+			  <Expression>
+				<SimpleExpression>
+				  <ValueExpression>
+					<XPathQuery Type="Integer">Property[@Name='FreeSpacePercent']</XPathQuery>
+				  </ValueExpression>
+				  <Operator>Greater</Operator>
+				  <ValueExpression>
+					<Value Type="Integer">$Config/WarningThreshold$</Value>
+				  </ValueExpression>
+				</SimpleExpression>
+			  </Expression>
+            </ConditionDetection>
+            <ConditionDetection ID="WarningCondition" TypeID="System!System.ExpressionFilter">
+              <Expression>
+                <And>
+                  <Expression>
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="Integer">Property[@Name='FreeSpacePercent']</XPathQuery>
+                      </ValueExpression>
+                      <Operator>LessEqual</Operator>
+                      <ValueExpression>
+                        <Value Type="Integer">$Config/WarningThreshold$</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+                  <Expression>
+                    <SimpleExpression>
+                      <ValueExpression>
+                        <XPathQuery Type="Integer">Property[@Name='FreeSpacePercent']</XPathQuery>
+                      </ValueExpression>
+                      <Operator>Greater</Operator>
+                      <ValueExpression>
+                        <Value Type="Integer">$Config/CriticalThreshold$</Value>
+                      </ValueExpression>
+                    </SimpleExpression>
+                  </Expression>
+				</And>
+		      </Expression>				  
+            </ConditionDetection>			
+            <ConditionDetection ID="CriticalCondition" TypeID="System!System.ExpressionFilter">
+			  <Expression>
+				<SimpleExpression>
+				  <ValueExpression>
+					<XPathQuery Type="Integer">Property[@Name='FreeSpacePercent']</XPathQuery>
+				  </ValueExpression>
+				  <Operator>LessEqual</Operator>
+				  <ValueExpression>
+					<Value Type="Integer">$Config/CriticalThreshold$</Value>
+				  </ValueExpression>
+				</SimpleExpression>
+			  </Expression>
+            </ConditionDetection>
+          </MemberModules>
+          <RegularDetections>
+            <RegularDetection MonitorTypeStateID="Error">
+              <Node ID="CriticalCondition">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+            <RegularDetection MonitorTypeStateID="Success">
+              <Node ID="HealthyCondition">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+            <RegularDetection MonitorTypeStateID="Warning">
+              <Node ID="WarningCondition">
+                <Node ID="DS" />
+              </Node>
+            </RegularDetection>
+          </RegularDetections>
+        </MonitorImplementation>
+      </UnitMonitorType>	  
+	</MonitorTypes>
+  </TypeDefinitions>
+  <Monitoring>
+    <Discoveries>
+      <Discovery ID="Demo.Cookdown.Advanced.UNCPathShare.Discovery" Enabled="true" Target="SC!Microsoft.SystemCenter.ManagementServer" ConfirmDelivery="false" Remotable="true" Priority="Normal">
+        <Category>Discovery</Category>
+        <DiscoveryTypes>
+          <DiscoveryClass TypeID="Demo.Cookdown.Advanced.Class">
+            <Property PropertyID="UNCPath" />
+          </DiscoveryClass>
+        </DiscoveryTypes>
+        <DataSource ID="DS" TypeID="Windows!Microsoft.Windows.TimedPowerShell.DiscoveryProvider">
+          <IntervalSeconds>14400</IntervalSeconds>
+          <SyncTime />
+          <ScriptName>Demo.Cookdown.Advanced.UNCPathShare.Discovery.ps1</ScriptName>
+          <ScriptBody>
+#=================================================================================
+#  This script will build entities of the NetworkShare class based on the script
+#  below and based off the list provided
+#
+#  Author: VDOT ITD
+#  v1.2
+#=================================================================================
+param($SourceId,$ManagedEntityId,$ComputerName)
+
+
+# Manual Testing section - put stuff here for manually testing script - typically parameters:
+#=================================================================================
+# $SourceId = '{00000000-0000-0000-0000-000000000000}'
+# $ManagedEntityId = '{00000000-0000-0000-0000-000000000000}'
+# $ComputerName = "foo.domain.com"
+#=================================================================================
+
+
+# Constants section - modify stuff here:
+#=================================================================================
+# Assign script name variable for use in event logging.  
+# ScriptName should be the same as the ID of the module that the script is contained in
+$ScriptName = "Demo.Cookdown.Advanced.UNCPathShare.Discovery.ps1"
+$EventID = "1313"
+#=================================================================================
+
+
+# Starting Script section - All scripts get this
+#=================================================================================
+# Gather the start time of the script
+$StartTime = Get-Date
+#Set variable to be used in logging events
+$whoami = whoami
+# Load MOMScript API
+$momapi = New-Object -comObject MOM.ScriptAPI
+#Log script event that we are starting task
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript is starting. `nRunning as ($whoami).")
+#=================================================================================
+	
+
+# Discovery Script section - Discovery scripts get this
+#=================================================================================
+# Load SCOM Discovery module
+$DiscoveryData = $momapi.CreateDiscoveryData(0, $SourceId, $ManagedEntityId)
+#=================================================================================	
+
+
+# Begin MAIN script section
+#=================================================================================
+#Define the File Path
+[string]$FilePath = "E:\SCOM\Discovery_Lists\network_share.txt"
+
+# Test to see if folder and file exists
+$FileExists = Test-Path $FilePath
+
+IF ($FileExists)
+{
+  $Shares = Get-Content -Path $FilePath
+
+  IF ($Shares)
+  {
+    FOREACH ($Share in $Shares)
+    {
+	  [string]$UNCPath = $Share
+      $instance = $DiscoveryData.CreateClassInstance("$MPElement[Name='Demo.Cookdown.Advanced.Class']$")
+	  $instance.AddProperty("$MPElement[Name='Windows!Microsoft.Windows.Computer']/PrincipalName$",$ComputerName)
+	  $instance.AddProperty("$MPElement[Name='Demo.Cookdown.Advanced.Class']/UNCPath$",$UNCPath)
+	  $instance.AddProperty("$MPElement[Name='System!System.Entity']/DisplayName$",$UNCPath)
+	  $DiscoveryData.AddInstance($instance)
+    }
+  }
+  ELSE
+  {
+    # Log an event for no objects discovered
+    $momapi.LogScriptEvent($ScriptName,$EventID,0,"`nNothing discovered. `nNo shares found in file.")
+  }
+}
+ELSE
+{
+  #Error finding file
+  $momapi.LogScriptEvent($ScriptName,$EventID,1,"`nError finding discovery file at ($FilePath). `nTerminating.")
+  EXIT
+}
+
+# Return Discovery Items Normally      
+$DiscoveryData
+# Return Discovery Bag to the command line for testing (does not work from ISE)
+# $momapi.Return($DiscoveryData)
+#=================================================================================
+# End MAIN script section
+
+
+# End of script section
+#=================================================================================
+#Log an event for script ending and total execution time.
+$EndTime = Get-Date
+$ScriptTime = ($EndTime - $StartTime).TotalSeconds
+$momapi.LogScriptEvent($ScriptName,$EventID,0,"`nScript Completed. `nScript Runtime: ($ScriptTime) seconds.")
+#=================================================================================
+# End of script
+
+          </ScriptBody>
+          <Parameters>
+            <Parameter>
+              <Name>SourceID</Name>
+              <Value>$MPElement$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>ManagedEntityID</Name>
+              <Value>$Target/Id$</Value>
+            </Parameter>
+            <Parameter>
+              <Name>ComputerName</Name>
+              <Value>$Target/Host/Property[Type="Windows!Microsoft.Windows.Computer"]/PrincipalName$</Value>
+            </Parameter>			
+          </Parameters>
+          <TimeoutSeconds>120</TimeoutSeconds>
+        </DataSource>
+      </Discovery>
+    </Discoveries>
+    <Rules>
+	  <Rule ID="Demo.Cookdown.Advanced.FreeSpaceGB.PerformanceCollection.Rule" Enabled="true" Target="Demo.Cookdown.Advanced.Class" ConfirmDelivery="false" Remotable="true" Priority="Normal" DiscardLevel="100">
+		<Category>PerformanceCollection</Category>
+		<DataSources>
+		  <DataSource ID="DS" TypeID="Demo.Cookdown.Advanced.Performance.Filtered.DS">
+			<IntervalSeconds>60</IntervalSeconds>
+			<TimeoutSeconds>300</TimeoutSeconds>
+			<UNCPath>$Target/Property[Type="Demo.Cookdown.Advanced.Class"]/UNCPath$</UNCPath>
+		  </DataSource>
+		</DataSources>
+		<ConditionDetection ID="System.Performance.DataGenericMapper" TypeID="Perf!System.Performance.DataGenericMapper">
+		  <ObjectName>Share</ObjectName>
+		  <CounterName>FreeSpaceGB</CounterName>
+		  <InstanceName>$Data/Property[@Name='UNCPath']$</InstanceName>
+		  <Value>$Data/Property[@Name='FreeSpaceGB']$</Value>
+		</ConditionDetection>
+		<WriteActions>
+		  <WriteAction ID="WriteToDB" TypeID="SC!Microsoft.SystemCenter.CollectPerformanceData" />  <!-- Can be optional - collect this data to the Operations Database.  -->
+		  <WriteAction ID="WriteToDW" TypeID="MSDL!Microsoft.SystemCenter.DataWarehouse.PublishPerformanceData" />  <!-- Can be optional - collect this data to the Data Warehouse Database -->
+		</WriteActions>
+	  </Rule>
+	  <Rule ID="Demo.Cookdown.Advanced.FreeSpacePercent.PerformanceCollection.Rule" Enabled="true" Target="Demo.Cookdown.Advanced.Class" ConfirmDelivery="false" Remotable="true" Priority="Normal" DiscardLevel="100">
+		<Category>PerformanceCollection</Category>
+		<DataSources>
+		  <DataSource ID="DS" TypeID="Demo.Cookdown.Advanced.Performance.Filtered.DS">
+			<IntervalSeconds>60</IntervalSeconds>
+			<TimeoutSeconds>300</TimeoutSeconds>
+			<UNCPath>$Target/Property[Type="Demo.Cookdown.Advanced.Class"]/UNCPath$</UNCPath>
+		  </DataSource>
+		</DataSources>
+		<ConditionDetection ID="System.Performance.DataGenericMapper" TypeID="Perf!System.Performance.DataGenericMapper">
+		  <ObjectName>Share</ObjectName>
+		  <CounterName>FreeSpacePercent</CounterName>
+		  <InstanceName>$Data/Property[@Name='UNCPath']$</InstanceName>
+		  <Value>$Data/Property[@Name='FreeSpacePercent']$</Value>
+		</ConditionDetection>
+		<WriteActions>
+		  <WriteAction ID="WriteToDB" TypeID="SC!Microsoft.SystemCenter.CollectPerformanceData" />  <!-- Can be optional - collect this data to the Operations Database.  -->
+		  <WriteAction ID="WriteToDW" TypeID="MSDL!Microsoft.SystemCenter.DataWarehouse.PublishPerformanceData" />  <!-- Can be optional - collect this data to the Data Warehouse Database -->
+		</WriteActions>
+	  </Rule>	  
+	  <Rule ID="Demo.Cookdown.Advanced.UsedSpaceGB.PerformanceCollection.Rule" Enabled="true" Target="Demo.Cookdown.Advanced.Class" ConfirmDelivery="false" Remotable="true" Priority="Normal" DiscardLevel="100">
+		<Category>PerformanceCollection</Category>
+		<DataSources>
+		  <DataSource ID="DS" TypeID="Demo.Cookdown.Advanced.Performance.Filtered.DS">
+			<IntervalSeconds>60</IntervalSeconds>
+			<TimeoutSeconds>300</TimeoutSeconds>
+			<UNCPath>$Target/Property[Type="Demo.Cookdown.Advanced.Class"]/UNCPath$</UNCPath>
+		  </DataSource>
+		</DataSources>
+		<ConditionDetection ID="System.Performance.DataGenericMapper" TypeID="Perf!System.Performance.DataGenericMapper">
+		  <ObjectName>Share</ObjectName>
+		  <CounterName>UsedSpaceGB</CounterName>
+		  <InstanceName>$Data/Property[@Name='UNCPath']$</InstanceName>
+		  <Value>$Data/Property[@Name='UsedSpaceGB']$</Value>
+		</ConditionDetection>
+		<WriteActions>
+		  <WriteAction ID="WriteToDB" TypeID="SC!Microsoft.SystemCenter.CollectPerformanceData" />  <!-- Can be optional - collect this data to the Operations Database.  -->
+		  <WriteAction ID="WriteToDW" TypeID="MSDL!Microsoft.SystemCenter.DataWarehouse.PublishPerformanceData" />  <!-- Can be optional - collect this data to the Data Warehouse Database -->
+		</WriteActions>
+	  </Rule>	  
+	  <Rule ID="Demo.Cookdown.Advanced.UsedSpacePercent.PerformanceCollection.Rule" Enabled="true" Target="Demo.Cookdown.Advanced.Class" ConfirmDelivery="false" Remotable="true" Priority="Normal" DiscardLevel="100">
+		<Category>PerformanceCollection</Category>
+		<DataSources>
+		  <DataSource ID="DS" TypeID="Demo.Cookdown.Advanced.Performance.Filtered.DS">
+			<IntervalSeconds>60</IntervalSeconds>
+			<TimeoutSeconds>300</TimeoutSeconds>
+			<UNCPath>$Target/Property[Type="Demo.Cookdown.Advanced.Class"]/UNCPath$</UNCPath>
+		  </DataSource>
+		</DataSources>
+		<ConditionDetection ID="System.Performance.DataGenericMapper" TypeID="Perf!System.Performance.DataGenericMapper">
+		  <ObjectName>Share</ObjectName>
+		  <CounterName>UsedSpacePercent</CounterName>
+		  <InstanceName>$Data/Property[@Name='UNCPath']$</InstanceName>
+		  <Value>$Data/Property[@Name='UsedSpacePercent']$</Value>
+		</ConditionDetection>
+		<WriteActions>
+		  <WriteAction ID="WriteToDB" TypeID="SC!Microsoft.SystemCenter.CollectPerformanceData" />  <!-- Can be optional - collect this data to the Operations Database.  -->
+		  <WriteAction ID="WriteToDW" TypeID="MSDL!Microsoft.SystemCenter.DataWarehouse.PublishPerformanceData" />  <!-- Can be optional - collect this data to the Data Warehouse Database -->
+		</WriteActions>
+	  </Rule>	  
+    </Rules>
+    <Monitors>
+      <UnitMonitor ID="Demo.Cookdown.Advanced.FreeSpaceGB.Monitor" Accessibility="Public" Enabled="true" Target="Demo.Cookdown.Advanced.Class" ParentMonitorID="Health!System.Health.AvailabilityState" Remotable="true" Priority="Normal" TypeID="Demo.Cookdown.Advanced.FreeSpaceGB.MonitorType" ConfirmDelivery="false">
+		<Category>AvailabilityHealth</Category>
+		<AlertSettings AlertMessage="Demo.Cookdown.Advanced.FreeSpaceGB.Monitor.AlertMessage">
+			<AlertOnState>Error</AlertOnState>
+			<AutoResolve>true</AutoResolve>
+			<AlertPriority>Normal</AlertPriority>
+			<AlertSeverity>MatchMonitorHealth</AlertSeverity>
+			<AlertParameters>
+				<AlertParameter1>$Data/Context/Property[@Name="UNCPath"]$</AlertParameter1>
+				<AlertParameter2>$Data/Context/Property[@Name="FreeSpaceGB"]$</AlertParameter2>
+				<AlertParameter3>$Data/Context/Property[@Name="FreeSpacePercent"]$</AlertParameter3>
+			</AlertParameters>
+		</AlertSettings>
+		<OperationalStates>
+			<OperationalState ID="Error" MonitorTypeStateID="Error" HealthState="Error" />
+			<OperationalState ID="Warning" MonitorTypeStateID="Warning" HealthState="Warning" />
+			<OperationalState ID="Success" MonitorTypeStateID="Success" HealthState="Success" />
+		</OperationalStates>
+		<Configuration>
+			<IntervalSeconds>60</IntervalSeconds>
+			<TimeoutSeconds>300</TimeoutSeconds>
+			<UNCPath>$Target/Property[Type="Demo.Cookdown.Advanced.Class"]/UNCPath$</UNCPath>
+			<WarningThreshold>15</WarningThreshold>
+			<CriticalThreshold>5</CriticalThreshold>
+		</Configuration>
+      </UnitMonitor>	  
+      <UnitMonitor ID="Demo.Cookdown.Advanced.FreeSpacePercent.Monitor" Accessibility="Public" Enabled="true" Target="Demo.Cookdown.Advanced.Class" ParentMonitorID="Health!System.Health.AvailabilityState" Remotable="true" Priority="Normal" TypeID="Demo.Cookdown.Advanced.FreeSpacePercent.MonitorType" ConfirmDelivery="false">
+		<Category>AvailabilityHealth</Category>
+		<AlertSettings AlertMessage="Demo.Cookdown.Advanced.FreeSpacePercent.Monitor.AlertMessage">
+			<AlertOnState>Error</AlertOnState>
+			<AutoResolve>true</AutoResolve>
+			<AlertPriority>Normal</AlertPriority>
+			<AlertSeverity>MatchMonitorHealth</AlertSeverity>
+			<AlertParameters>
+				<AlertParameter1>$Data/Context/Property[@Name="UNCPath"]$</AlertParameter1>
+				<AlertParameter2>$Data/Context/Property[@Name="FreeSpaceGB"]$</AlertParameter2>
+				<AlertParameter3>$Data/Context/Property[@Name="FreeSpacePercent"]$</AlertParameter3>
+			</AlertParameters>
+		</AlertSettings>
+		<OperationalStates>
+			<OperationalState ID="Error" MonitorTypeStateID="Error" HealthState="Error" />
+			<OperationalState ID="Warning" MonitorTypeStateID="Warning" HealthState="Warning" />
+			<OperationalState ID="Success" MonitorTypeStateID="Success" HealthState="Success" />
+		</OperationalStates>
+		<Configuration>
+			<IntervalSeconds>60</IntervalSeconds>
+			<TimeoutSeconds>300</TimeoutSeconds>
+			<UNCPath>$Target/Property[Type="Demo.Cookdown.Advanced.Class"]/UNCPath$</UNCPath>
+			<WarningThreshold>10</WarningThreshold>
+			<CriticalThreshold>5</CriticalThreshold>
+		</Configuration>
+      </UnitMonitor>	  
+    </Monitors>
+  </Monitoring>
+  <Presentation>
+    <Views>
+      <View ID="Demo.Cookdown.Advanced.Class.State.View" Accessibility="Public" Enabled="true" Target="Demo.Cookdown.Advanced.Class" TypeID="SC!Microsoft.SystemCenter.StateViewType" Visible="true">
+        <Category>Operations</Category>
+        <Criteria>
+          <InMaintenanceMode>false</InMaintenanceMode>
+        </Criteria>
+        <Presentation>
+          <ColumnInfo Index="0" SortIndex="0" Width="100" Grouped="false" Sorted="true" IsSortable="true" Visible="true" SortOrder="Descending">
+            <Name>State</Name>
+            <Id>Demo.Cookdown.Advanced.Class.State.View</Id>
+          </ColumnInfo>
+          <ColumnInfo Index="1" SortIndex="-1" Width="100" Grouped="false" Sorted="false" IsSortable="true" Visible="true" SortOrder="Ascending">
+            <Name>Maintenance Mode</Name>
+            <Id>InMaintenanceMode</Id>
+          </ColumnInfo>
+          <ColumnInfo Index="2" SortIndex="-1" Width="100" Grouped="false" Sorted="false" IsSortable="true" Visible="true" SortOrder="Ascending">
+            <Name>Name</Name>
+            <Id>Name</Id>
+          </ColumnInfo>
+          <ColumnInfo Index="3" SortIndex="-1" Width="100" Grouped="false" Sorted="false" IsSortable="true" Visible="true" SortOrder="Ascending">
+            <Name>Path</Name>
+            <Id>Path</Id>
+          </ColumnInfo>
+          <ColumnInfo Index="4" SortIndex="-1" Width="100" Grouped="false" Sorted="false" IsSortable="true" Visible="false" SortOrder="Ascending">
+            <Name>Display Name</Name>
+            <Id>System.Entity/DisplayName</Id>
+          </ColumnInfo>
+          <ColumnInfo Index="5" SortIndex="-1" Width="100" Grouped="false" Sorted="false" IsSortable="true" Visible="false" SortOrder="Ascending">
+            <Name>Name</Name>
+            <Id>Demo.Cookdown.Advanced.Class/UNCPath</Id>
+          </ColumnInfo>
+        </Presentation>
+        <Target />
+      </View>
+      <View ID="Demo.Cookdown.Advanced.Class.Performance.View" Accessibility="Public" Enabled="true" Target="Demo.Cookdown.Advanced.Class" TypeID="SC!Microsoft.SystemCenter.PerformanceViewType" Visible="true">
+        <Category>Operations</Category>
+        <Criteria />
+        <Presentation>
+          <SortedColumnIndex>0</SortedColumnIndex>
+          <SortOrder>0</SortOrder>
+          <StartTime>2023-11-08T11:21:49.5821425-05:00</StartTime>
+          <EndTime>2023-11-09T11:21:49.5831449-05:00</EndTime>
+          <DynamicTimeTicks>864000000000</DynamicTimeTicks>
+          <IsDynamic>true</IsDynamic>
+          <Is3DMode>false</Is3DMode>
+          <ShowAlerts>false</ShowAlerts>
+          <ShowMaintenanceMode>false</ShowMaintenanceMode>
+          <BaselineMode>false</BaselineMode>
+          <ShowPointLabels>false</ShowPointLabels>
+          <EnableSmartLabels>true</EnableSmartLabels>
+          <RightAngleAxes>false</RightAngleAxes>
+          <ClusterSeries>false</ClusterSeries>
+          <Title />
+          <TitleFont>Microsoft Sans Serif,12,Regular</TitleFont>
+          <ChartFont>Microsoft Sans Serif,8.25,Regular</ChartFont>
+          <ShowBands>false</ShowBands>
+          <BandColor>-1579033</BandColor>
+          <ChartType>Line</ChartType>
+          <Depth>100</Depth>
+          <GapDepth>100</GapDepth>
+          <Perspective>10</Perspective>
+          <GraphXRotation>0</GraphXRotation>
+          <GraphYRotation>0</GraphYRotation>
+          <XLabelAngle>0</XLabelAngle>
+          <LabelColor>-16777216</LabelColor>
+          <LabelFont>Microsoft Sans Serif,8.25,Regular</LabelFont>
+          <XAxisVisible>True</XAxisVisible>
+          <XShowMajorGridlines>false</XShowMajorGridlines>
+          <XShowMinorGridlines>false</XShowMinorGridlines>
+          <ShowInterlaceStrips>false</ShowInterlaceStrips>
+          <XInterlaceColor>16777215</XInterlaceColor>
+          <XShowSideMargin>true</XShowSideMargin>
+          <XAxisFont>Microsoft Sans Serif,8.25,Regular</XAxisFont>
+          <AutoAxis>true</AutoAxis>
+          <AxisMax>100</AxisMax>
+          <AxisMin>0</AxisMin>
+          <YAxisVisible>True</YAxisVisible>
+          <YShowMajorGridlines>true</YShowMajorGridlines>
+          <YShowMinorGridlines>false</YShowMinorGridlines>
+          <YShowInterlaceStrips>false</YShowInterlaceStrips>
+          <YShowSideMargin>true</YShowSideMargin>
+          <YAxisFont>Microsoft Sans Serif,8.25,Regular</YAxisFont>
+          <BackgroundColor1>-1</BackgroundColor1>
+          <BackgroundColor2>-1</BackgroundColor2>
+          <GradientType>None</GradientType>
+          <Series />
+        </Presentation>
+        <Target />
+      </View>
+    </Views>
+    <Folders>
+      <Folder ID="Demo.Cookdown.Advanced.Root.Folder" Accessibility="Public" ParentFolder="SC!Microsoft.SystemCenter.Monitoring.ViewFolder.Root" />
+    </Folders>
+    <FolderItems>
+      <FolderItem ElementID="Demo.Cookdown.Advanced.Class.State.View" ID="Demo.Cookdown.Advanced.Class.State.View.FolderItem" Folder="Demo.Cookdown.Advanced.Root.Folder" />
+      <FolderItem ElementID="Demo.Cookdown.Advanced.Class.Performance.View" ID="Demo.Cookdown.Advanced.Class.Performance.View.FolderItem" Folder="Demo.Cookdown.Advanced.Root.Folder" />
+    </FolderItems>
+	<StringResources>
+		<StringResource ID="Demo.Cookdown.Advanced.FreeSpaceGB.Monitor.AlertMessage" />
+		<StringResource ID="Demo.Cookdown.Advanced.FreeSpacePercent.Monitor.AlertMessage" />
+	</StringResources>
+  </Presentation>
+  <LanguagePacks>
+    <LanguagePack ID="ENU" IsDefault="true">
+      <DisplayStrings>
+        <DisplayString ElementID="Demo.Cookdown.Advanced">
+          <Name>Demo Cookdown Advanced</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.Class">
+          <Name>Network Share</Name>
+          <Description>This class holds defined network shares that need their capacity monitored.</Description>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.Class" SubElementID="UNCPath">
+          <Name>UNCPath</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.UNCPathShare.Discovery">
+          <Name>Network Share UNCPath Share Discovery</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.Root.Folder">
+          <Name>Network Share</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.Class.State.View">
+          <Name>Network Share State</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.Class.Performance.View">
+          <Name>Network Share Performance</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpaceGB.Monitor">
+          <Name>Network Share FreeSpaceGB Monitor</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpaceGB.Monitor" SubElementID="Error">
+          <Name>Critical</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpaceGB.Monitor" SubElementID="Warning">
+          <Name>Warning</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpaceGB.Monitor" SubElementID="Success">
+          <Name>Healthy</Name>
+        </DisplayString>
+		<DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpaceGB.Monitor.AlertMessage">
+					<Name>Network Share FreeSpaceGB Alert</Name>
+					<Description>Free Space is low on a Network Share.
+UNC Path: {0}
+Free Space GB: {1}
+Free Space Percent: {2}</Description>
+		</DisplayString>		
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpacePercent.Monitor">
+          <Name>Network Share FreeSpacePercent Monitor</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpacePercent.Monitor" SubElementID="Error">
+          <Name>Critical</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpacePercent.Monitor" SubElementID="Warning">
+          <Name>Warning</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpacePercent.Monitor" SubElementID="Success">
+          <Name>Healthy</Name>
+        </DisplayString>
+		<DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpacePercent.Monitor.AlertMessage">
+					<Name>Network Share FreeSpacePercent Alert</Name>
+					<Description>Free Space is low on a Network Share.
+UNC Path: {0}
+Free Space GB: {1}
+Free Space Percent: {2}</Description>
+		</DisplayString>		
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpaceGB.PerformanceCollection.Rule">
+          <Name>Network Share FreeSpaceGB Performance Collection Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.UsedSpaceGB.PerformanceCollection.Rule">
+          <Name>Network Share UsedSpaceGB Performance Collection Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.FreeSpacePercent.PerformanceCollection.Rule">
+          <Name>Network Share FreeSpacePercent Performance Collection Rule</Name>
+        </DisplayString>
+        <DisplayString ElementID="Demo.Cookdown.Advanced.UsedSpacePercent.PerformanceCollection.Rule">
+          <Name>Network Share UsedSpacePercent Performance Collection Rule</Name>
+        </DisplayString>		
+      </DisplayStrings>
+    </LanguagePack>
+  </LanguagePacks>
+</ManagementPack>

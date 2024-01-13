@@ -1,0 +1,4 @@
+\\server\share1
+\\server\share2
+\\server\share3
+\\server\share4
